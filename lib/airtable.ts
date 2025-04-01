@@ -61,25 +61,57 @@ export async function fetchAirtableItems(): Promise<AirtableItem[]> {
   }
 }
 
+interface AirtableError {
+  error: {
+    type?: string
+    message?: string
+  }
+}
+
 /**
  * Aktualisiert den Status und optional die Frage eines Items
- * Gibt false zurück, wenn die Aktualisierung fehlschlägt
+ * Gibt ein Objekt mit success und optional einer detaillierten Fehlermeldung zurück
  */
 export async function updateAirtableItem(
   id: string,
   status: 'JA' | 'NEIN' | '?',
   question?: string
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
+  // Konfigurationsprüfung
   if (!isConfigured) {
-    console.warn('Airtable ist nicht konfiguriert. Bitte AIRTABLE_API_KEY und AIRTABLE_BASE_ID in .env.local oder Vercel Environment Variables definieren.')
-    return false
+    return {
+      success: false,
+      error: 'Airtable ist nicht konfiguriert. Bitte AIRTABLE_API_KEY und AIRTABLE_BASE_ID in .env.local oder Vercel Environment Variables definieren.'
+    }
+  }
+
+  // Record ID Validierung
+  if (!id.match(/^rec[a-zA-Z0-9]{14}$/)) {
+    return {
+      success: false,
+      error: 'Ungültige Record ID. Die ID muss mit "rec" beginnen und 17 Zeichen lang sein.'
+    }
   }
 
   try {
-    const fields: any = { Status: status }
+    // Status-Mapping für Airtable
+    const statusMap = {
+      'JA': 'Freigegeben',
+      'NEIN': 'Abgelehnt',
+      '?': 'Frage'
+    }
+
+    // Felder für das Update vorbereiten
+    const fields: Record<string, string> = {
+      'Status': statusMap[status]
+    }
+
     if (question) {
       fields['Frage vom Kunden'] = question
     }
+
+    // Rate-Limit: 200ms Verzögerung
+    await new Promise(resolve => setTimeout(resolve, 200))
 
     const response = await fetch(
       `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}/${id}`,
@@ -91,13 +123,29 @@ export async function updateAirtableItem(
     )
 
     if (!response.ok) {
-      console.error(`Airtable API error: ${response.statusText}`)
-      return false
+      const errorData = await response.json() as AirtableError
+      
+      // Spezifische Fehlermeldungen basierend auf dem Statuscode
+      switch (response.status) {
+        case 401:
+          return { success: false, error: 'Ungültiger API-Schlüssel. Bitte überprüfen Sie Ihre Airtable-Konfiguration.' }
+        case 404:
+          return { success: false, error: 'Record nicht gefunden. Bitte überprüfen Sie die Record ID.' }
+        case 422:
+          return { success: false, error: `Ungültige Daten: ${errorData.error?.message || 'Bitte überprüfen Sie die Feldnamen und Werte.'}` }
+        case 429:
+          return { success: false, error: 'Rate-Limit erreicht. Bitte warten Sie einen Moment.' }
+        default:
+          return { success: false, error: errorData.error?.message || `Airtable API Fehler: ${response.statusText}` }
+      }
     }
 
-    return true
+    return { success: true }
   } catch (error) {
     console.error('Error updating Airtable:', error)
-    return false
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'
+    }
   }
 } 

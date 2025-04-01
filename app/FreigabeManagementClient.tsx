@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 import { ImageIcon, X } from "lucide-react"
 import Script from 'next/script'
-import { updateAirtableItem } from '@/lib/airtable'
+import { updateItemStatus } from './actions'
+import { toast } from 'sonner'
 
 interface Item {
   id: string
@@ -168,7 +169,18 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
 
     try {
       // Update Airtable
-      await updateAirtableItem(currentItem.id, approved ? 'JA' : 'NEIN')
+      const result = await updateItemStatus(currentItem.id, approved ? 'JA' : 'NEIN')
+      
+      if (!result.success) {
+        toast.error(result.error || 'Fehler beim Aktualisieren des Status', {
+          description: 'Bitte versuchen Sie es später erneut.',
+          duration: 5000
+        })
+        setIsAnimating(false)
+        setExitX(0)
+        setExitColor("")
+        return
+      }
 
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -197,10 +209,13 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
       })
     } catch (error) {
       console.error('Error updating item:', error)
+      toast.error('Ein unerwarteter Fehler ist aufgetreten', {
+        description: error instanceof Error ? error.message : 'Bitte versuchen Sie es später erneut.',
+        duration: 5000
+      })
       setIsAnimating(false)
       setExitX(0)
       setExitColor("")
-      // Hier könnte man einen Error-Toast anzeigen
     }
   }, [isAnimating, currentItem, currentItemIndex, initialItems.length])
 
@@ -215,30 +230,55 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
       setExitX(300)
       setExitColor("rgba(219, 234, 254, 0.8)") // Pastell-Blau
 
-      setTimeout(() => {
-        const newProcessedItem: ProcessedItem = {
-          id: currentItem.id,
-          approved: null as any, // TypeScript workaround since interface expects boolean
-          details: {
-            title: currentItem.title,
-            type: currentItem.type,
-            description: currentItem.description,
-            attachment: currentItem.attachment,
-          },
-        }
-        setProcessedItems(prev => [...prev, newProcessedItem])
-
-        if (currentItemIndex < initialItems.length - 1) {
-          setCurrentItemIndex(prev => prev + 1)
+      try {
+        // Update Airtable with question
+        const result = await updateItemStatus(currentItem.id, '?', question)
+        
+        if (!result.success) {
+          toast.error(result.error || 'Fehler beim Speichern der Frage', {
+            description: 'Bitte versuchen Sie es später erneut.',
+            duration: 5000
+          })
+          setIsAnimating(false)
+          setExitX(0)
+          setExitColor("")
+          return
         }
 
-        // Reset states
-        setQuestion("")
-        setShowQuestionModal(false)
+        setTimeout(() => {
+          const newProcessedItem: ProcessedItem = {
+            id: currentItem.id,
+            approved: null as any,
+            details: {
+              title: currentItem.title,
+              type: currentItem.type,
+              description: currentItem.description,
+              attachment: currentItem.attachment,
+            },
+          }
+          setProcessedItems(prev => [...prev, newProcessedItem])
+
+          if (currentItemIndex < initialItems.length - 1) {
+            setCurrentItemIndex(prev => prev + 1)
+          }
+
+          // Reset states
+          setQuestion("")
+          setShowQuestionModal(false)
+          setIsAnimating(false)
+          setExitX(0)
+          setExitColor("")
+        }, 500)
+      } catch (error) {
+        console.error('Error updating item with question:', error)
+        toast.error('Ein unerwarteter Fehler ist aufgetreten', {
+          description: error instanceof Error ? error.message : 'Bitte versuchen Sie es später erneut.',
+          duration: 5000
+        })
         setIsAnimating(false)
         setExitX(0)
         setExitColor("")
-      }, 500)
+      }
     }
   }
 

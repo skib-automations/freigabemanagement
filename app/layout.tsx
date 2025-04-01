@@ -1,6 +1,7 @@
 import type React from "react"
 import "./globals.css"
 import type { Metadata, Viewport } from "next"
+import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
   title: "Freigabe Management",
@@ -23,7 +24,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="de" className="antialiased">
-      <body className="min-h-screen bg-[#F1F1F1] text-base">{children}</body>
+      <body className="min-h-screen bg-[#F1F1F1] text-base">
+        {children}
+        <Toaster richColors position="top-right" />
+      </body>
     </html>
   )
 }
