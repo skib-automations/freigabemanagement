@@ -16,10 +16,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Experimental features disabled to resolve webpack module issues in Next.js 15.2.4
   experimental: {
-    webpackBuildWorker: true,
-    parallelServerBuildTraces: true,
-    parallelServerCompiles: true,
+    webpackBuildWorker: false,
+    parallelServerBuildTraces: false,
+    parallelServerCompiles: false,
   },
 }
 
