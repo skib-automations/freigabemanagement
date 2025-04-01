@@ -56,12 +56,12 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
   const progress = Math.min(Math.round((processedItems.length / initialItems.length) * 100), 100)
 
   const approvedItems = useMemo(() => 
-    processedItems.filter((item) => item.approved),
+    processedItems.filter((item) => item.approved === true),
     [processedItems]
   )
   
   const rejectedItems = useMemo(() => 
-    processedItems.filter((item) => !item.approved),
+    processedItems.filter((item) => item.approved === false),
     [processedItems]
   )
 
@@ -215,41 +215,30 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
       setExitX(300)
       setExitColor("rgba(219, 234, 254, 0.8)") // Pastell-Blau
 
-      try {
-        // Update Airtable with question
-        await updateAirtableItem(currentItem.id, '?', question)
+      setTimeout(() => {
+        const newProcessedItem: ProcessedItem = {
+          id: currentItem.id,
+          approved: null as any, // TypeScript workaround since interface expects boolean
+          details: {
+            title: currentItem.title,
+            type: currentItem.type,
+            description: currentItem.description,
+            attachment: currentItem.attachment,
+          },
+        }
+        setProcessedItems(prev => [...prev, newProcessedItem])
 
-        setTimeout(() => {
-          const newProcessedItem: ProcessedItem = {
-            id: currentItem.id,
-            approved: false,
-            details: {
-              title: currentItem.title,
-              type: currentItem.type,
-              description: currentItem.description,
-              attachment: currentItem.attachment,
-            },
-          }
-          setProcessedItems(prev => [...prev, newProcessedItem])
+        if (currentItemIndex < initialItems.length - 1) {
+          setCurrentItemIndex(prev => prev + 1)
+        }
 
-          if (currentItemIndex < initialItems.length - 1) {
-            setCurrentItemIndex(prev => prev + 1)
-          }
-
-          // Reset states
-          setQuestion("")
-          setShowQuestionModal(false)
-          setIsAnimating(false)
-          setExitX(0)
-          setExitColor("")
-        }, 500)
-      } catch (error) {
-        console.error('Error updating item with question:', error)
+        // Reset states
+        setQuestion("")
+        setShowQuestionModal(false)
         setIsAnimating(false)
         setExitX(0)
         setExitColor("")
-        // Hier könnte man einen Error-Toast anzeigen
-      }
+      }, 500)
     }
   }
 
