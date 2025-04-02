@@ -3,10 +3,10 @@
 // und in den Vercel Environment Variables für die Produktion definiert werden.
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID
-const AIRTABLE_TABLE_NAME = 'Items'
+const AIRTABLE_TABLE_NAME = process.env.AIRTABLE_TABLE_NAME
 
 // Überprüfe, ob die notwendigen Umgebungsvariablen verfügbar sind
-const isConfigured = AIRTABLE_API_KEY && AIRTABLE_BASE_ID
+const isConfigured = AIRTABLE_API_KEY && AIRTABLE_BASE_ID && AIRTABLE_TABLE_NAME
 
 // TypeScript Interfaces für Airtable Daten
 export interface Attachment {
@@ -100,7 +100,7 @@ export async function updateAirtableItem(
   if (!isConfigured) {
     return {
       success: false,
-      error: 'Airtable ist nicht konfiguriert. Bitte AIRTABLE_API_KEY und AIRTABLE_BASE_ID in .env.local oder Vercel Environment Variables definieren.'
+      error: 'Airtable ist nicht konfiguriert. Bitte AIRTABLE_API_KEY, AIRTABLE_BASE_ID und AIRTABLE_TABLE_NAME in .env.local oder Vercel Environment Variables definieren.'
     }
   }
 
