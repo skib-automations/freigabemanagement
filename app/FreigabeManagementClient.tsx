@@ -8,25 +8,61 @@ import Script from 'next/script'
 import { updateItemStatus } from './actions'
 import { toast } from 'sonner'
 
+interface AttachmentObject {
+  id: string
+  url: string
+  filename?: string
+  type?: string
+}
+
 interface Item {
   id: string
   title: string
   type: string
   description: string
-  attachment?: string
+  fields: {
+    Anhang?: AttachmentObject[]
+  }
   status: 'JA' | 'NEIN' | '?'
   question?: string
+  attachment?: AttachmentObject
 }
 
 interface ProcessedItem {
   id: string
-  approved: boolean
+  approved: boolean | null
   details: {
     title: string
     type: string
     description: string
-    attachment?: string
+    fields: {
+      Anhang?: AttachmentObject[]
+    }
   }
+}
+
+// Attachment Modal Component
+function AttachmentModal({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-4 max-w-4xl max-h-[90vh] w-full relative">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 p-2 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <X className="h-6 w-6" />
+        </button>
+        <div className="mt-8 max-h-[calc(90vh-4rem)] overflow-auto">
+          <img
+            src={url}
+            alt="Anhang"
+            className="max-w-full h-auto mx-auto"
+            style={{ maxHeight: 'calc(90vh - 6rem)' }}
+          />
+        </div>
+      </div>
+    </div>
+  )
 }
 
 declare global {
@@ -44,6 +80,7 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
   const [processedItems, setProcessedItems] = useState<ProcessedItem[]>([])
   const [showQuestionModal, setShowQuestionModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState<ProcessedItem | null>(null)
   const [question, setQuestion] = useState("")
   const [exitX, setExitX] = useState(0)
@@ -53,6 +90,24 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
   const [hasShownConfetti, setHasShownConfetti] = useState(false)
 
   const currentItem = initialItems[currentItemIndex]
+  
+  // Debug logging for attachment data
+  console.log('Current Item:', currentItem)
+  console.log('Current Item Attachment:', currentItem?.attachment)
+  
+  // Updated attachment validation for single attachment object
+  const hasValidAttachment = Boolean(
+    currentItem?.attachment && 
+    currentItem.attachment.url
+  )
+  
+  // Debug logging for attachment validation
+  console.log('hasValidAttachment:', hasValidAttachment)
+  console.log('Validation details:', {
+    hasAttachment: Boolean(currentItem?.attachment),
+    hasUrl: Boolean(currentItem?.attachment?.url)
+  })
+
   const isComplete = processedItems.length === initialItems.length
   const progress = Math.min(Math.round((processedItems.length / initialItems.length) * 100), 100)
 
@@ -161,14 +216,13 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
   }), [])
 
   const handleDecision = useCallback(async (approved: boolean) => {
-    if (isAnimating) return
+    if (isAnimating || !currentItem) return
 
     setIsAnimating(true)
     setExitX(300)
     setExitColor(approved ? "rgba(220, 252, 231, 0.8)" : "rgba(254, 226, 226, 0.8)")
 
     try {
-      // Update Airtable
       const result = await updateItemStatus(currentItem.id, approved ? 'JA' : 'NEIN')
       
       if (!result.success) {
@@ -191,8 +245,10 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
               title: currentItem.title,
               type: currentItem.type,
               description: currentItem.description,
-              attachment: currentItem.attachment,
-            },
+              fields: {
+                Anhang: currentItem.attachment ? [currentItem.attachment] : undefined
+              }
+            }
           }
           setProcessedItems(prev => [...prev, newProcessedItem])
           
@@ -253,8 +309,10 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
               title: currentItem.title,
               type: currentItem.type,
               description: currentItem.description,
-              attachment: currentItem.attachment,
-            },
+              fields: {
+                Anhang: currentItem.attachment ? [currentItem.attachment] : undefined
+              }
+            }
           }
           setProcessedItems(prev => [...prev, newProcessedItem])
 
@@ -282,278 +340,313 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
     }
   }
 
+  const handleAttachmentClick = useCallback((item: Item) => {
+    if (!item?.attachment?.url) {
+      console.log('Invalid attachment:', item?.attachment)
+      return
+    }
+
+    setSelectedItem({
+      id: item.id,
+      approved: null,
+      details: {
+        title: item.title,
+        type: item.type,
+        description: item.description,
+        fields: {
+          Anhang: [item.attachment]
+        }
+      }
+    })
+    setShowAttachmentModal(true)
+  }, [])
+
   return (
-    <div className="min-h-screen bg-[#F1F1F1] p-4 md:p-8">
-      <Script 
-        src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" 
-        strategy="lazyOnload"
-      />
+    <>
+      <div className="min-h-screen bg-[#F1F1F1] p-4 md:p-8">
+        <Script 
+          src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" 
+          strategy="lazyOnload"
+        />
 
-      <header className="max-w-4xl mx-auto mb-8 md:mb-16 pt-4 md:pt-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Image
-            src="/skib-logo-grey.png"
-            alt="SKIB Logo"
-            width={80}
-            height={40}
-            className="object-contain w-16 md:w-20"
-            sizes="(max-width: 768px) 64px, 80px"
-            priority
-          />
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold">FREIGABE</h1>
-        <h1 className="text-3xl md:text-4xl font-bold">MANAGEMENT</h1>
-      </header>
+        <header className="max-w-4xl mx-auto mb-8 md:mb-16 pt-4 md:pt-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Image
+              src="/skib-logo-grey.png"
+              alt="SKIB Logo"
+              width={80}
+              height={40}
+              className="object-contain w-16 md:w-20"
+              sizes="(max-width: 768px) 64px, 80px"
+              priority
+            />
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold">FREIGABE</h1>
+          <h1 className="text-3xl md:text-4xl font-bold">MANAGEMENT</h1>
+        </header>
 
-      <main className="max-w-4xl mx-auto">
-        <div className="flex justify-center mb-8 md:mb-16 relative min-h-[400px]">
-          <AnimatePresence mode="wait">
-            {isComplete ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
-                className="w-full max-w-2xl bg-gradient-to-b from-[#D9D9D9] to-[#d8ff56] rounded-lg border-2 border-black overflow-hidden p-4 md:p-8 shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex items-center justify-center min-h-[350px]"
-              >
-                <div className="text-center">
-                  <h2 className="text-4xl md:text-5xl font-bold mb-4">YEAAAAH!</h2>
-                  <p className="text-xl md:text-2xl font-medium">
-                    Du hast alle Items<br />bearbeitet.
-                  </p>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key={currentItem.id}
-                variants={cardVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={cardTransition}
-                style={{ 
-                  position: 'relative',
-                  transformOrigin: "bottom left",
-                  transform: 'translateZ(0)',
-                  backfaceVisibility: 'hidden',
-                  perspective: 1000,
-                  willChange: 'transform, opacity'
-                }}
-                className="w-full max-w-2xl bg-[#D9D9D9] rounded-lg border-2 border-black overflow-hidden p-4 md:p-8 py-6 md:py-10 shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
-              >
-                <div className="flex flex-col min-h-[350px] justify-between space-y-6 md:space-y-10">
-                  <div className="space-y-6 md:space-y-8">
-                    <div className="flex justify-start">
-                      <div className="bg-[#d8ff56] w-16 py-1 px-2 rounded-sm flex items-center justify-center">
-                        <span className="text-sm font-medium">
-                          {currentItem.type}
-                        </span>
+        <main className="max-w-4xl mx-auto">
+          <div className="flex justify-center mb-8 md:mb-16 relative min-h-[400px]">
+            <AnimatePresence mode="wait">
+              {isComplete ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+                  className="w-full max-w-2xl bg-gradient-to-b from-[#D9D9D9] to-[#d8ff56] rounded-lg border-2 border-black overflow-hidden p-4 md:p-8 shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex items-center justify-center min-h-[350px]"
+                >
+                  <div className="text-center">
+                    <h2 className="text-4xl md:text-5xl font-bold mb-4">YEAAAAH!</h2>
+                    <p className="text-xl md:text-2xl font-medium">
+                      Du hast alle Items<br />bearbeitet.
+                    </p>
+                  </div>
+                </motion.div>
+              ) : currentItem && (
+                <motion.div
+                  key={currentItem.id}
+                  variants={cardVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={cardTransition}
+                  style={{ 
+                    position: 'relative',
+                    transformOrigin: "bottom left",
+                    transform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden',
+                    perspective: 1000,
+                    willChange: 'transform, opacity'
+                  }}
+                  className="w-full max-w-2xl bg-[#D9D9D9] rounded-lg border-2 border-black overflow-hidden p-4 md:p-8 py-6 md:py-10 shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+                >
+                  <div className="flex flex-col min-h-[350px] justify-between space-y-6 md:space-y-10">
+                    <div className="space-y-6 md:space-y-8">
+                      <div className="flex justify-start">
+                        <div className="bg-[#d8ff56] w-16 py-1 px-2 rounded-sm flex items-center justify-center">
+                          <span className="text-sm font-medium">
+                            {currentItem.type}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <h2 className="text-lg md:text-xl font-bold pl-1">{currentItem.title}</h2>
+                      
+                      <div className="bg-white rounded-lg p-4 md:p-8">
+                        <div className="text-sm md:text-base text-gray-700 min-h-[180px]">
+                          {currentItem.description}
+                        </div>
+                      </div>
+
+                      <div className="flex">
+                        {hasValidAttachment && (
+                          <button 
+                            onClick={() => handleAttachmentClick(currentItem)}
+                            className="bg-white rounded-lg w-12 h-12 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors hover:bg-gray-50 cursor-pointer"
+                            aria-label="Anhang öffnen"
+                          >
+                            <ImageIcon className="w-6 h-6 text-gray-400" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                    
-                    <h2 className="text-lg md:text-xl font-bold pl-1">{currentItem.title}</h2>
-                    
-                    <div className="bg-white rounded-lg p-4 md:p-8">
-                      <div className="text-sm md:text-base text-gray-700 min-h-[180px]">
-                        {currentItem.description}
-                      </div>
-                    </div>
 
-                    <div className="flex">
-                      <button 
-                        onClick={() => currentItem.attachment && window.open(currentItem.attachment, '_blank')}
-                        className={`bg-white rounded-lg w-12 h-12 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors ${
-                          currentItem.attachment ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-not-allowed opacity-50'
-                        }`}
-                        aria-label="Anhang öffnen"
-                        disabled={!currentItem.attachment}
+                    <div className="flex gap-3 md:gap-4 pb-2">
+                      <button
+                        onClick={() => handleDecision(true)}
+                        className="flex-1 bg-white border border-black rounded-full py-3 min-h-[44px] font-medium hover:bg-gray-50 transition-colors text-sm md:text-base"
                       >
-                        <ImageIcon className="w-6 h-6 text-gray-400" />
+                        JA
+                      </button>
+                      <button
+                        onClick={() => handleDecision(false)}
+                        className="flex-1 bg-black text-white rounded-full py-3 min-h-[44px] font-medium hover:bg-gray-900 transition-colors text-sm md:text-base"
+                      >
+                        NEIN
+                      </button>
+                      <button
+                        onClick={() => setShowQuestionModal(true)}
+                        className="w-16 md:w-20 min-h-[44px] flex items-center justify-center rounded-full border border-black hover:bg-gray-50 transition-colors"
+                      >
+                        ?
                       </button>
                     </div>
                   </div>
-
-                  <div className="flex gap-3 md:gap-4 pb-2">
-                    <button
-                      onClick={() => handleDecision(true)}
-                      className="flex-1 bg-white border border-black rounded-full py-3 min-h-[44px] font-medium hover:bg-gray-50 transition-colors text-sm md:text-base"
-                    >
-                      JA
-                    </button>
-                    <button
-                      onClick={() => handleDecision(false)}
-                      className="flex-1 bg-black text-white rounded-full py-3 min-h-[44px] font-medium hover:bg-gray-900 transition-colors text-sm md:text-base"
-                    >
-                      NEIN
-                    </button>
-                    <button
-                      onClick={() => setShowQuestionModal(true)}
-                      className="w-16 md:w-20 min-h-[44px] flex items-center justify-center rounded-full border border-black hover:bg-gray-50 transition-colors"
-                    >
-                      ?
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="mb-8 md:mb-16 px-2 md:px-0">
-          <p className="text-lg md:text-xl mb-2">{progress}% abgearbeitet...</p>
-          <div className="w-full h-3 bg-white rounded-full overflow-hidden border border-black">
-            <div 
-              className="h-full bg-[#d8ff56] transition-all duration-500" 
-              style={{ width: `${progress}%` }}
-            />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-          <div className="bg-gray-200 rounded-lg p-4 md:p-6">
-            <h2 className="text-lg md:text-xl font-bold mb-4 text-center">Freigegeben</h2>
-            <div className="space-y-2">
-              {approvedItems.length > 0
-                ? approvedItems.map((item) => (
-                    <motion.button
-                      key={`approved-${item.id}`}
-                      onClick={() => handleItemClick(item)}
-                      className="w-full bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer group"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <span className="text-sm md:text-base group-hover:underline">
+          <div className="mb-8 md:mb-16 px-2 md:px-0">
+            <p className="text-lg md:text-xl mb-2">{progress}% abgearbeitet...</p>
+            <div className="w-full h-3 bg-white rounded-full overflow-hidden border border-black">
+              <div 
+                className="h-full bg-[#d8ff56] transition-all duration-500" 
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+            <div className="bg-gray-200 rounded-lg p-4 md:p-6">
+              <h2 className="text-lg md:text-xl font-bold mb-4 text-center">Freigegeben</h2>
+              <div className="space-y-2">
+                {approvedItems.length > 0
+                  ? approvedItems.map((item) => (
+                      <motion.button
+                        key={`approved-${item.id}`}
+                        onClick={() => handleItemClick(item)}
+                        className="w-full bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer group"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="text-sm md:text-base group-hover:underline">
+                          ITEM
+                        </span>
+                      </motion.button>
+                    ))
+                  : Array.from({ length: 5 }).map((_, index) => (
+                      <div key={`empty-approved-${index}`} className="bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center opacity-50">
                         ITEM
-                      </span>
-                    </motion.button>
-                  ))
-                : Array.from({ length: 5 }).map((_, index) => (
-                    <div key={`empty-approved-${index}`} className="bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center opacity-50">
-                      ITEM
-                    </div>
-                  ))}
+                      </div>
+                    ))}
+              </div>
             </div>
-          </div>
-          <div className="bg-gray-200 rounded-lg p-4 md:p-6">
-            <h2 className="text-lg md:text-xl font-bold mb-4 text-center">Abgelehnt</h2>
-            <div className="space-y-2">
-              {rejectedItems.length > 0
-                ? rejectedItems.map((item) => (
-                    <motion.button
-                      key={`rejected-${item.id}`}
-                      onClick={() => handleItemClick(item)}
-                      className="w-full bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer group"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <span className="text-sm md:text-base group-hover:underline">
+            <div className="bg-gray-200 rounded-lg p-4 md:p-6">
+              <h2 className="text-lg md:text-xl font-bold mb-4 text-center">Abgelehnt</h2>
+              <div className="space-y-2">
+                {rejectedItems.length > 0
+                  ? rejectedItems.map((item) => (
+                      <motion.button
+                        key={`rejected-${item.id}`}
+                        onClick={() => handleItemClick(item)}
+                        className="w-full bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer group"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="text-sm md:text-base group-hover:underline">
+                          ITEM
+                        </span>
+                      </motion.button>
+                    ))
+                  : Array.from({ length: 5 }).map((_, index) => (
+                      <div key={`empty-rejected-${index}`} className="bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center opacity-50">
                         ITEM
-                      </span>
-                    </motion.button>
-                  ))
-                : Array.from({ length: 5 }).map((_, index) => (
-                    <div key={`empty-rejected-${index}`} className="bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center opacity-50">
-                      ITEM
-                    </div>
-                  ))}
+                      </div>
+                    ))}
+              </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
 
-      {/* Frage-Modal */}
-      {showQuestionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="bg-white rounded-lg p-4 md:p-6 max-w-md w-full"
-          >
-            <h3 className="text-lg md:text-xl font-bold mb-4">Deine Frage zum Item</h3>
-            <textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg p-3 h-32 mb-4 text-base"
-              placeholder="Deine Frage zum Item..."
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowQuestionModal(false)
-                  setQuestion("")
-                }}
-                className="px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg hover:bg-gray-100 text-sm md:text-base"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={handleQuestionSubmit}
-                className="px-4 py-2 min-h-[44px] bg-black text-white rounded-lg hover:bg-gray-800 text-sm md:text-base"
-              >
-                Absenden
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Detail Modal */}
-      {showDetailModal && selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="bg-[#D9D9D9] rounded-lg border-2 border-black overflow-hidden max-w-2xl w-full shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
-          >
-            <div className="p-4 md:p-8">
-              <div className="flex justify-between items-start mb-6">
-                <div className="bg-[#d8ff56] w-16 py-1 px-2 rounded-sm flex items-center justify-center">
-                  <span className="text-sm font-medium">
-                    {selectedItem.details.type}
-                  </span>
-                </div>
+        {/* Frage-Modal */}
+        {showQuestionModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="bg-white rounded-lg p-4 md:p-6 max-w-md w-full"
+            >
+              <h3 className="text-lg md:text-xl font-bold mb-4">Deine Frage zum Item</h3>
+              <textarea
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg p-3 h-32 mb-4 text-base"
+                placeholder="Deine Frage zum Item..."
+              />
+              <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="p-1 hover:bg-black/10 rounded-full transition-colors"
+                  onClick={() => {
+                    setShowQuestionModal(false)
+                    setQuestion("")
+                  }}
+                  className="px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg hover:bg-gray-100 text-sm md:text-base"
                 >
-                  <X className="w-6 h-6" />
+                  Abbrechen
+                </button>
+                <button
+                  onClick={handleQuestionSubmit}
+                  className="px-4 py-2 min-h-[44px] bg-black text-white rounded-lg hover:bg-gray-800 text-sm md:text-base"
+                >
+                  Absenden
                 </button>
               </div>
-              
-              <h2 className="text-lg md:text-xl font-bold mb-6">{selectedItem.details.title}</h2>
-              
-              <div className="bg-white rounded-lg p-4 md:p-8 mb-6">
-                <div className="text-sm md:text-base text-gray-700">
-                  {selectedItem.details.description}
-                </div>
-              </div>
+            </motion.div>
+          </div>
+        )}
 
-              {selectedItem.details.attachment && (
-                <div className="mb-6">
+        {/* Detail Modal */}
+        {showDetailModal && selectedItem && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="bg-[#D9D9D9] rounded-lg border-2 border-black overflow-hidden max-w-2xl w-full shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+            >
+              <div className="p-4 md:p-8">
+                <div className="flex justify-between items-start mb-6">
+                  <div className="bg-[#d8ff56] w-16 py-1 px-2 rounded-sm flex items-center justify-center">
+                    <span className="text-sm font-medium">
+                      {selectedItem.details.type}
+                    </span>
+                  </div>
                   <button
-                    onClick={() => window.open(selectedItem.details.attachment, '_blank')}
-                    className="bg-white rounded-lg px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors"
+                    onClick={() => setShowDetailModal(false)}
+                    className="p-1 hover:bg-black/10 rounded-full transition-colors"
                   >
-                    <ImageIcon className="w-4 h-4" />
-                    Anhang öffnen
+                    <X className="w-6 h-6" />
                   </button>
                 </div>
-              )}
+                
+                <h2 className="text-lg md:text-xl font-bold mb-6">{selectedItem.details.title}</h2>
+                
+                <div className="bg-white rounded-lg p-4 md:p-8 mb-6">
+                  <div className="text-sm md:text-base text-gray-700">
+                    {selectedItem.details.description}
+                  </div>
+                </div>
 
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="px-6 py-2 bg-black text-white rounded-full min-h-[44px] font-medium hover:bg-gray-900 transition-colors text-sm md:text-base"
-                >
-                  Schließen
-                </button>
+                {selectedItem.details.fields?.Anhang && selectedItem.details.fields.Anhang.length > 0 && (
+                  <div className="mb-6">
+                    <button
+                      onClick={() => {
+                        setShowAttachmentModal(true)
+                        setSelectedItem(selectedItem)
+                      }}
+                      className="bg-white rounded-lg px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      Anhang öffnen
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="px-6 py-2 bg-black text-white rounded-full min-h-[44px] font-medium hover:bg-gray-900 transition-colors text-sm md:text-base"
+                  >
+                    Schließen
+                  </button>
+                </div>
               </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </div>
+            </motion.div>
+          </div>
+        )}
+      </div>
+
+      {/* Attachment Modal */}
+      <AnimatePresence>
+        {showAttachmentModal && selectedItem?.details?.fields?.Anhang?.[0]?.url && (
+          <AttachmentModal
+            url={selectedItem.details.fields.Anhang[0].url}
+            onClose={() => setShowAttachmentModal(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   )
 } 

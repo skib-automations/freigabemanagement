@@ -9,12 +9,19 @@ const AIRTABLE_TABLE_NAME = 'Items'
 const isConfigured = AIRTABLE_API_KEY && AIRTABLE_BASE_ID
 
 // TypeScript Interfaces für Airtable Daten
+export interface Attachment {
+  id: string
+  url: string
+  filename?: string
+  type?: string
+}
+
 export interface AirtableItem {
   id: string
   fields: {
     Titel: string
     Beschreibung: string
-    Anhang?: string[]
+    Anhang?: Attachment[]
     Type: string
     Kunde: string
     Status: 'JA' | 'NEIN' | '?'
@@ -43,21 +50,67 @@ export async function fetchAirtableItems(): Promise<AirtableItem[]> {
   }
 
   try {
-    const response = await fetch(
-      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?filterByFormula={Kunde}="Kunde A"`,
-      { headers: getHeaders() }
-    )
+    // Construct the URL with filter and fields parameters
+    const url = new URL(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}`)
+    url.searchParams.append('filterByFormula', '{Kunde}="Kunde A"')
+    
+    // Add all required fields
+    const fields = [
+      'Titel',
+      'Beschreibung',
+      'Anhang',
+      'Type',
+      'Kunde',
+      'Status',
+      'Frage vom Kunden'
+    ]
+    
+    fields.forEach(field => {
+      url.searchParams.append('fields[]', field)
+    })
+
+    console.log('Airtable API URL:', url.toString())
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+      },
+    })
 
     if (!response.ok) {
-      console.error(`Airtable API error: ${response.statusText}`)
-      return []
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const data: AirtableResponse = await response.json()
+    const data = await response.json()
+    
+    // Debug logging for raw Airtable data
+    console.log('Airtable records:', data.records)
+    
+    // Log available fields in the first record
+    if (data.records.length > 0) {
+      const firstRecord = data.records[0]
+      console.log('Available fields:', Object.keys(firstRecord?.fields || {}))
+      console.log('First record fields:', firstRecord?.fields)
+      
+      // Specifically check the Anhang field
+      if (firstRecord?.fields?.Anhang) {
+        console.log('Anhang field type:', typeof firstRecord.fields.Anhang)
+        console.log('Anhang field value:', firstRecord.fields.Anhang)
+        console.log('Is Anhang an array?', Array.isArray(firstRecord.fields.Anhang))
+        console.log('Anhang array length:', firstRecord.fields.Anhang.length)
+        if (firstRecord.fields.Anhang.length > 0) {
+          console.log('First attachment:', firstRecord.fields.Anhang[0])
+        }
+      } else {
+        console.log('Anhang field is not present in the first record')
+        console.log('All field names:', Object.keys(firstRecord?.fields || {}))
+      }
+    }
+    
     return data.records
   } catch (error) {
-    console.error('Error fetching from Airtable:', error)
-    return []
+    console.error('Error fetching Airtable items:', error)
+    throw error
   }
 }
 
