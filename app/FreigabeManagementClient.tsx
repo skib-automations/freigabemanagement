@@ -108,8 +108,9 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
     hasUrl: Boolean(currentItem?.attachment?.url)
   })
 
-  const isComplete = processedItems.length === initialItems.length
-  const progress = Math.min(Math.round((processedItems.length / initialItems.length) * 100), 100)
+  // Calculate progress percentage
+  const isComplete = processedItems.length === initialItems.length;
+  const progress = initialItems.length === 0 ? 100 : Math.min(Math.round((processedItems.length / initialItems.length) * 100), 100);
 
   const approvedItems = useMemo(() => 
     processedItems.filter((item) => item.approved === true),
