@@ -114,15 +114,14 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
   const isComplete = processedItems.length === initialItems.length;
   const progress = initialItems.length === 0 ? 100 : Math.min(Math.round((processedItems.length / initialItems.length) * 100), 100);
 
+  // Get approved and rejected items with memoization
   const approvedItems = useMemo(() => 
-    processedItems.filter((item) => item.approved === true),
-    [processedItems]
-  )
-  
+    processedItems.filter(item => item.approved === true)
+  , [processedItems]);
+
   const rejectedItems = useMemo(() => 
-    processedItems.filter((item) => item.approved === false),
-    [processedItems]
-  )
+    processedItems.filter(item => item.approved === false)
+  , [processedItems]);
 
   // Konfetti-Animation
   const triggerConfetti = useCallback(() => {
@@ -364,6 +363,14 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
     setShowAttachmentModal(true)
   }, [])
 
+  // Function to truncate title if too long
+  const truncateTitle = (title: string) => {
+    if (title.length > 30) {
+      return title.substring(0, 27) + '...';
+    }
+    return title;
+  };
+
   return (
     <>
       <div className="min-h-screen bg-[#F1F1F1] p-4 md:p-8">
@@ -386,10 +393,10 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
           </div>
           <h1 className="text-3xl md:text-4xl font-bold">FREIGABE</h1>
           <h1 className="text-3xl md:text-4xl font-bold">MANAGEMENT</h1>
-          {initialItems.length > 0 && (
+          {kunde && (
             <div className="mt-2">
               <span className="text-sm md:text-base text-white font-bold bg-black px-2 py-1 rounded uppercase">
-                {initialItems[0].kunde}
+                {kunde}
               </span>
             </div>
           )}
@@ -502,49 +509,38 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
             <div className="bg-gray-200 rounded-lg p-4 md:p-6">
               <h2 className="text-lg md:text-xl font-bold mb-4 text-center">Freigegeben</h2>
               <div className="space-y-2">
-                {approvedItems.length > 0
-                  ? approvedItems.map((item) => (
-                      <motion.button
-                        key={`approved-${item.id}`}
-                        onClick={() => handleItemClick(item)}
-                        className="w-full bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer group"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <span className="text-sm md:text-base group-hover:underline">
-                          ITEM
-                        </span>
-                      </motion.button>
-                    ))
-                  : Array.from({ length: 5 }).map((_, index) => (
-                      <div key={`empty-approved-${index}`} className="bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center opacity-50">
-                        ITEM
-                      </div>
-                    ))}
+                {approvedItems.map((item) => (
+                  <motion.button
+                    key={`approved-${item.id}`}
+                    onClick={() => handleItemClick(item)}
+                    className="w-full bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer group"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className="text-sm md:text-base group-hover:underline">
+                      {truncateTitle(item.details.title)}
+                    </span>
+                  </motion.button>
+                ))}
               </div>
             </div>
+
             <div className="bg-gray-200 rounded-lg p-4 md:p-6">
               <h2 className="text-lg md:text-xl font-bold mb-4 text-center">Abgelehnt</h2>
               <div className="space-y-2">
-                {rejectedItems.length > 0
-                  ? rejectedItems.map((item) => (
-                      <motion.button
-                        key={`rejected-${item.id}`}
-                        onClick={() => handleItemClick(item)}
-                        className="w-full bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer group"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <span className="text-sm md:text-base group-hover:underline">
-                          ITEM
-                        </span>
-                      </motion.button>
-                    ))
-                  : Array.from({ length: 5 }).map((_, index) => (
-                      <div key={`empty-rejected-${index}`} className="bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center opacity-50">
-                        ITEM
-                      </div>
-                    ))}
+                {rejectedItems.map((item) => (
+                  <motion.button
+                    key={`rejected-${item.id}`}
+                    onClick={() => handleItemClick(item)}
+                    className="w-full bg-white rounded p-2 text-center min-h-[44px] flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer group"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className="text-sm md:text-base group-hover:underline">
+                      {truncateTitle(item.details.title)}
+                    </span>
+                  </motion.button>
+                ))}
               </div>
             </div>
           </div>
