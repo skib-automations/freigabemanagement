@@ -544,6 +544,19 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
               </div>
             </div>
           </div>
+
+          {/* Add footer with logo */}
+          <footer className="flex justify-center mt-48 mb-8">
+            <Image
+              src="/skib-logo.png"
+              alt="SKIB Logo"
+              width={80}
+              height={40}
+              className="object-contain"
+              sizes="80px"
+              priority
+            />
+          </footer>
         </main>
 
         {/* Frage-Modal */}
