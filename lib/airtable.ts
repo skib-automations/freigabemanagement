@@ -30,7 +30,10 @@ export interface AirtableItem {
 }
 
 export interface AirtableResponse {
-  records: AirtableItem[]
+  records: Array<{
+    id: string
+    fields: Record<string, any>
+  }>
 }
 
 // Airtable API Headers
@@ -43,74 +46,37 @@ const getHeaders = () => ({
  * Lädt alle Items für Kunde A aus Airtable
  * Gibt eine leere Liste zurück, wenn die Konfiguration fehlt oder ein Fehler auftritt
  */
-export async function fetchAirtableItems(): Promise<AirtableItem[]> {
-  if (!isConfigured) {
-    console.warn('Airtable ist nicht konfiguriert. Bitte AIRTABLE_API_KEY und AIRTABLE_BASE_ID in .env.local oder Vercel Environment Variables definieren.')
-    return []
-  }
-
+export async function fetchAirtableItems() {
   try {
-    // Construct the URL with filter and fields parameters
-    const url = new URL(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}`)
-    url.searchParams.append('filterByFormula', '{Kunde}="Kunde A"')
+    // Construct URL without any filters or views
+    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}`;
     
-    // Add all required fields
-    const fields = [
-      'Titel',
-      'Beschreibung',
-      'Anhang',
-      'Type',
-      'Kunde',
-      'Status',
-      'Frage vom Kunden'
-    ]
+    console.log('Fetching from Airtable URL:', url);
     
-    fields.forEach(field => {
-      url.searchParams.append('fields[]', field)
-    })
-
-    console.log('Airtable API URL:', url.toString())
-
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-      },
-    })
+        'Content-Type': 'application/json'
+      }
+    });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      throw new Error(`Airtable API error: ${response.statusText}`);
     }
 
-    const data = await response.json()
+    const data: AirtableResponse = await response.json();
     
-    // Debug logging for raw Airtable data
-    console.log('Airtable records:', data.records)
-    
-    // Log available fields in the first record
-    if (data.records.length > 0) {
-      const firstRecord = data.records[0]
-      console.log('Available fields:', Object.keys(firstRecord?.fields || {}))
-      console.log('First record fields:', firstRecord?.fields)
-      
-      // Specifically check the Anhang field
-      if (firstRecord?.fields?.Anhang) {
-        console.log('Anhang field type:', typeof firstRecord.fields.Anhang)
-        console.log('Anhang field value:', firstRecord.fields.Anhang)
-        console.log('Is Anhang an array?', Array.isArray(firstRecord.fields.Anhang))
-        console.log('Anhang array length:', firstRecord.fields.Anhang.length)
-        if (firstRecord.fields.Anhang.length > 0) {
-          console.log('First attachment:', firstRecord.fields.Anhang[0])
-        }
-      } else {
-        console.log('Anhang field is not present in the first record')
-        console.log('All field names:', Object.keys(firstRecord?.fields || {}))
-      }
-    }
-    
-    return data.records
+    // Debug raw API response
+    console.log('Raw Airtable API response:', {
+      totalRecords: data.records.length,
+      sampleRecord: data.records[0],
+      allKundeValues: data.records.map(record => record.fields.Kunde)
+    });
+
+    return data.records;
   } catch (error) {
-    console.error('Error fetching Airtable items:', error)
-    throw error
+    console.error('Error fetching from Airtable:', error);
+    throw error;
   }
 }
 

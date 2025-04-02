@@ -26,6 +26,7 @@ interface Item {
   status: 'JA' | 'NEIN' | '?'
   question?: string
   attachment?: AttachmentObject
+  kunde: string
 }
 
 interface ProcessedItem {
@@ -73,9 +74,10 @@ declare global {
 
 interface Props {
   initialItems: Item[]
+  kunde: string
 }
 
-export default function FreigabeManagementClient({ initialItems }: Props) {
+export default function FreigabeManagementClient({ initialItems, kunde }: Props) {
   const [currentItemIndex, setCurrentItemIndex] = useState(0)
   const [processedItems, setProcessedItems] = useState<ProcessedItem[]>([])
   const [showQuestionModal, setShowQuestionModal] = useState(false)
@@ -384,6 +386,13 @@ export default function FreigabeManagementClient({ initialItems }: Props) {
           </div>
           <h1 className="text-3xl md:text-4xl font-bold">FREIGABE</h1>
           <h1 className="text-3xl md:text-4xl font-bold">MANAGEMENT</h1>
+          {initialItems.length > 0 && (
+            <div className="mt-2">
+              <span className="text-sm md:text-base text-white font-bold bg-black px-2 py-1 rounded uppercase">
+                {initialItems[0].kunde}
+              </span>
+            </div>
+          )}
         </header>
 
         <main className="max-w-4xl mx-auto">
