@@ -2,7 +2,7 @@ import { fetchAirtableItems } from '@/lib/airtable'
 import FreigabeManagementClient from './FreigabeManagementClient'
 import { Suspense } from 'react'
 import Image from 'next/image'
-import { ErrorFallback } from '@/components/ErrorFallback' // Importiere die neue Komponente
+import { ErrorFallback } from '@/components/ErrorFallback'
 
 interface AirtableItem {
   id: string
@@ -17,6 +17,7 @@ interface AirtableItem {
     }>
     'Frage vom Kunden'?: string
     Kunde: string
+    Link?: string  // Neue Spalte für den Link
   }
 }
 
@@ -48,7 +49,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     console.log('URL Parameter kunde:', kunde)
     console.log('All Kunde values in Airtable:', initialItems.map(item => ({
       Kunde: item.fields.Kunde,
-      Status: item.fields.Status
+      Status: item.fields.Status,
+      Link: item.fields.Link  // Link-Feld hinzufügen (Debugging)
     })))
     
     const pendingItems = initialItems.filter((item: AirtableItem) => {
@@ -66,7 +68,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
         NormalizedKundeField: normalizedKundeField,
         NormalizedKundeParam: normalizedKundeParam,
         MatchesKunde: matchesKunde,
-        IsUnlabeled: isUnlabeled
+        IsUnlabeled: isUnlabeled,
+        Link: item.fields.Link  // Link-Feld hinzufügen (Debugging)
       })
       
       return isUnlabeled && matchesKunde
@@ -78,7 +81,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
         id: item.id,
         kunde: item.fields.Kunde,
         status: item.fields.Status,
-        title: item.fields.Titel
+        title: item.fields.Titel,
+        link: item.fields.Link  // Link-Feld hinzufügen (Debugging)
       }))
     })
 
@@ -93,7 +97,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
       attachment: item.fields.Anhang?.[0],
       status: "" as "JA" | "NEIN" | "?",
       question: item.fields['Frage vom Kunden'],
-      kunde: item.fields.Kunde
+      kunde: item.fields.Kunde,
+      link: item.fields.Link  // Link-Feld hinzufügen
     }))
 
     return (
@@ -107,4 +112,4 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   }
 }
 
-export const dynamic = 'force-dynamic' // Erzwingt dynamisches Rendering
+export const dynamic = 'force-dynamic'

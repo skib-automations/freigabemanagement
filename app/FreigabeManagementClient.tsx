@@ -22,11 +22,13 @@ interface Item {
   description: string
   fields: {
     Anhang?: AttachmentObject[]
+    link?: string
   }
   status: 'JA' | 'NEIN' | '?'
   question?: string
   attachment?: AttachmentObject
   kunde: string
+  link?: string
 }
 
 interface ProcessedItem {
@@ -38,7 +40,9 @@ interface ProcessedItem {
     description: string
     fields: {
       Anhang?: AttachmentObject[]
+      link?: string
     }
+    link?: string
   }
 }
 
@@ -90,6 +94,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
   const [isAnimating, setIsAnimating] = useState(false)
   const [isPreloaded, setIsPreloaded] = useState(false)
   const [hasShownConfetti, setHasShownConfetti] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false) // Neuer Zustand für "Mehr anzeigen"
 
   const currentItem = initialItems[currentItemIndex]
   
@@ -247,7 +252,9 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
               title: currentItem.title,
               type: currentItem.type,
               description: currentItem.description,
+              link: currentItem.link,
               fields: {
+                link: currentItem.link,
                 Anhang: currentItem.attachment ? [currentItem.attachment] : undefined
               }
             }
@@ -280,6 +287,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
   const handleItemClick = (item: ProcessedItem) => {
     setSelectedItem(item)
     setShowDetailModal(true)
+    setIsExpanded(false) // Reset "Mehr anzeigen"-Zustand beim Öffnen
   }
 
   const handleQuestionSubmit = async () => {
@@ -311,7 +319,9 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
               title: currentItem.title,
               type: currentItem.type,
               description: currentItem.description,
+              link: currentItem.link,
               fields: {
+                link: currentItem.link,
                 Anhang: currentItem.attachment ? [currentItem.attachment] : undefined
               }
             }
@@ -355,7 +365,9 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
         title: item.title,
         type: item.type,
         description: item.description,
+        link: item.link,
         fields: {
+          link: item.link,
           Anhang: [item.attachment]
         }
       }
@@ -369,6 +381,12 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
       return title.substring(0, 27) + '...';
     }
     return title;
+  };
+
+  // Funktion zum Kürzen des Textes für die Vorschau
+  const truncateDescription = (description: string, maxLength: number = 100) => {
+    if (description.length <= maxLength) return description;
+    return description.substring(0, maxLength).trim() + '...';
   };
 
   return (
@@ -456,7 +474,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                         </div>
                       </div>
 
-                      <div className="flex">
+                      <div className="flex gap-2">
                         {hasValidAttachment && (
                           <button 
                             onClick={() => handleAttachmentClick(currentItem)}
@@ -465,6 +483,19 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                           >
                             <ImageIcon className="w-6 h-6 text-gray-400" />
                           </button>
+                        )}
+                        {currentItem.link && (
+                          <a
+                            href={currentItem.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-white rounded-lg w-12 h-12 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors hover:bg-gray-50 cursor-pointer"
+                            aria-label="Link öffnen"
+                          >
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                          </a>
                         )}
                       </div>
                     </div>
@@ -603,9 +634,9 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="bg-[#D9D9D9] rounded-lg border-2 border-black overflow-hidden max-w-2xl w-full shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+              className="bg-[#D9D9D9] rounded-lg border-2 border-black overflow-hidden max-w-2xl w-full max-h-[80vh] shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
             >
-              <div className="p-4 md:p-8">
+              <div className="p-4 md:p-8 overflow-y-auto max-h-[80vh]">
                 <div className="flex justify-between items-start mb-6">
                   <div className="bg-[#d8ff56] w-16 py-1 px-2 rounded-sm flex items-center justify-center">
                     <span className="text-sm font-medium">
@@ -624,8 +655,18 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                 
                 <div className="bg-white rounded-lg p-4 md:p-8 mb-6">
                   <div className="text-sm md:text-base text-gray-700 whitespace-pre-line">
-                    {selectedItem.details.description}
+                    {isExpanded
+                      ? selectedItem.details.description
+                      : truncateDescription(selectedItem.details.description, 100)}
                   </div>
+                  {selectedItem.details.description.length > 100 && (
+                    <button
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      className="mt-2 text-sm text-gray-600 hover:text-gray-800 underline"
+                    >
+                      {isExpanded ? "Weniger anzeigen" : "Mehr anzeigen..."}
+                    </button>
+                  )}
                 </div>
 
                 {selectedItem.details.fields?.Anhang && selectedItem.details.fields.Anhang.length > 0 && (
@@ -640,6 +681,21 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                       <ImageIcon className="w-4 h-4" />
                       Anhang öffnen
                     </button>
+                  </div>
+                )}
+                {selectedItem.details.link && (
+                  <div className="mb-6">
+                    <a
+                      href={selectedItem.details.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-white rounded-lg px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      Link öffnen
+                    </a>
                   </div>
                 )}
 
@@ -668,4 +724,4 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
       </AnimatePresence>
     </>
   )
-} 
+}
