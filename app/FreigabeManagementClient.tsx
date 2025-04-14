@@ -451,7 +451,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                       <h2 className="text-lg md:text-xl font-bold pl-1">{currentItem.title}</h2>
                       
                       <div className="bg-white rounded-lg p-4 md:p-8">
-                        <div className="text-sm md:text-base text-gray-700 min-h-[180px]">
+                        <div className="text-sm md:text-base text-gray-700 min-h-[180px] whitespace-pre-line">
                           {currentItem.description}
                         </div>
                       </div>
@@ -623,7 +623,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                 <h2 className="text-lg md:text-xl font-bold mb-6">{selectedItem.details.title}</h2>
                 
                 <div className="bg-white rounded-lg p-4 md:p-8 mb-6">
-                  <div className="text-sm md:text-base text-gray-700">
+                  <div className="text-sm md:text-base text-gray-700 whitespace-pre-line">
                     {selectedItem.details.description}
                   </div>
                 </div>
