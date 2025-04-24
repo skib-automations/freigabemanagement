@@ -26,8 +26,8 @@ interface Item {
   }
   status: 'JA' | 'NEIN' | '?'
   question?: string
-  attachment?: AttachmentObject // Für Kompatibilität mit älterem Code
-  attachments: AttachmentObject[] // Alle Anhänge
+  attachment?: AttachmentObject
+  attachments: AttachmentObject[]
   kunde: string
   link?: string
 }
@@ -47,7 +47,6 @@ interface ProcessedItem {
   }
 }
 
-// Attachment Modal Component
 function AttachmentModal({ attachments, onClose }: { attachments: AttachmentObject[]; onClose: () => void }) {
   const [currentAttachmentIndex, setCurrentAttachmentIndex] = useState(0)
 
@@ -144,12 +143,12 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
   console.log('Current Item Attachments:', currentItem?.attachments)
   console.log('Current Item Fields Anhang:', currentItem?.fields?.Anhang)
   
-  const hasValidAttachments = currentItem?.fields?.Anhang?.length > 0
+  const hasValidAttachments = Array.isArray(currentItem?.fields?.Anhang) && currentItem.fields.Anhang.length > 0
   
   console.log('hasValidAttachments:', hasValidAttachments)
   console.log('Validation details:', {
     hasAttachments: Boolean(currentItem?.fields?.Anhang),
-    attachmentCount: currentItem?.fields?.Anhang?.length,
+    attachmentCount: currentItem?.fields?.Anhang?.length ?? 0,
     fieldsAnhang: currentItem?.fields?.Anhang
   })
 
@@ -478,7 +477,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
 
                       <div className="flex gap-2 flex-wrap">
                         {hasValidAttachments ? (
-                          currentItem.fields.Anhang.map((attachment, index) => (
+                          currentItem.fields.Anhang!.map((attachment, index) => (
                             <button
                               key={attachment.id}
                               onClick={() => {
