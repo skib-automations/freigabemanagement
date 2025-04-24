@@ -26,7 +26,8 @@ interface Item {
   }
   status: 'JA' | 'NEIN' | '?'
   question?: string
-  attachment?: AttachmentObject
+  attachment?: AttachmentObject // Für Kompatibilität mit älterem Code
+  attachments: AttachmentObject[] // Alle Anhänge
   kunde: string
   link?: string
 }
@@ -47,7 +48,25 @@ interface ProcessedItem {
 }
 
 // Attachment Modal Component
-function AttachmentModal({ url, onClose }: { url: string; onClose: () => void }) {
+function AttachmentModal({ attachments, onClose }: { attachments: AttachmentObject[]; onClose: () => void }) {
+  const [currentAttachmentIndex, setCurrentAttachmentIndex] = useState(0)
+
+  const handlePrev = () => {
+    setCurrentAttachmentIndex((prev) => (prev > 0 ? prev - 1 : attachments.length - 1))
+  }
+
+  const handleNext = () => {
+    setCurrentAttachmentIndex((prev) => (prev < attachments.length - 1 ? prev + 1 : 0))
+  }
+
+  const currentAttachment = attachments[currentAttachmentIndex]
+
+  console.log('AttachmentModal:', {
+    attachments,
+    currentAttachmentIndex,
+    currentAttachment
+  })
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-4 max-w-4xl max-h-[90vh] w-full relative">
@@ -58,12 +77,35 @@ function AttachmentModal({ url, onClose }: { url: string; onClose: () => void })
           <X className="h-6 w-6" />
         </button>
         <div className="mt-8 max-h-[calc(90vh-4rem)] overflow-auto">
-          <img
-            src={url}
-            alt="Anhang"
-            className="max-w-full h-auto mx-auto"
-            style={{ maxHeight: 'calc(90vh - 6rem)' }}
-          />
+          {currentAttachment ? (
+            <>
+              <img
+                src={currentAttachment.url}
+                alt={`Anhang ${currentAttachmentIndex + 1}`}
+                className="max-w-full h-auto mx-auto"
+                style={{ maxHeight: 'calc(90vh - 6rem)' }}
+              />
+              {attachments.length > 1 && (
+                <div className="flex justify-between mt-4">
+                  <button
+                    onClick={handlePrev}
+                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                  >
+                    Vorheriger
+                  </button>
+                  <span>{`${currentAttachmentIndex + 1} von ${attachments.length}`}</span>
+                  <button
+                    onClick={handleNext}
+                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                  >
+                    Nächster
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <p>Kein Anhang verfügbar</p>
+          )}
         </div>
       </div>
     </div>
@@ -72,7 +114,7 @@ function AttachmentModal({ url, onClose }: { url: string; onClose: () => void })
 
 declare global {
   interface Window {
-    confetti: any;
+    confetti: any
   }
 }
 
@@ -94,88 +136,77 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
   const [isAnimating, setIsAnimating] = useState(false)
   const [isPreloaded, setIsPreloaded] = useState(false)
   const [hasShownConfetti, setHasShownConfetti] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false) // Neuer Zustand für "Mehr anzeigen"
+  const [isExpanded, setIsExpanded] = useState(false)
 
   const currentItem = initialItems[currentItemIndex]
   
-  // Debug logging for attachment data
   console.log('Current Item:', currentItem)
-  console.log('Current Item Attachment:', currentItem?.attachment)
+  console.log('Current Item Attachments:', currentItem?.attachments)
+  console.log('Current Item Fields Anhang:', currentItem?.fields?.Anhang)
   
-  // Updated attachment validation for single attachment object
-  const hasValidAttachment = Boolean(
-    currentItem?.attachment && 
-    currentItem.attachment.url
-  )
+  const hasValidAttachments = currentItem?.fields?.Anhang?.length > 0
   
-  // Debug logging for attachment validation
-  console.log('hasValidAttachment:', hasValidAttachment)
+  console.log('hasValidAttachments:', hasValidAttachments)
   console.log('Validation details:', {
-    hasAttachment: Boolean(currentItem?.attachment),
-    hasUrl: Boolean(currentItem?.attachment?.url)
+    hasAttachments: Boolean(currentItem?.fields?.Anhang),
+    attachmentCount: currentItem?.fields?.Anhang?.length,
+    fieldsAnhang: currentItem?.fields?.Anhang
   })
 
-  // Calculate progress percentage
-  const isComplete = processedItems.length === initialItems.length;
-  const progress = initialItems.length === 0 ? 100 : Math.min(Math.round((processedItems.length / initialItems.length) * 100), 100);
+  const isComplete = processedItems.length === initialItems.length
+  const progress = initialItems.length === 0 ? 100 : Math.min(Math.round((processedItems.length / initialItems.length) * 100), 100)
 
-  // Get approved and rejected items with memoization
   const approvedItems = useMemo(() => 
     processedItems.filter(item => item.approved === true)
-  , [processedItems]);
+  , [processedItems])
 
   const rejectedItems = useMemo(() => 
     processedItems.filter(item => item.approved === false)
-  , [processedItems]);
+  , [processedItems])
 
-  // Konfetti-Animation
   const triggerConfetti = useCallback(() => {
-    if (typeof window === 'undefined' || !window.confetti) return;
+    if (typeof window === 'undefined' || !window.confetti) return
     
-    const duration = 3000;
-    const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+    const duration = 3000
+    const animationEnd = Date.now() + duration
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 }
 
     function randomInRange(min: number, max: number) {
-      return Math.random() * (max - min) + min;
+      return Math.random() * (max - min) + min
     }
 
     const interval: any = setInterval(function() {
-      const timeLeft = animationEnd - Date.now();
+      const timeLeft = animationEnd - Date.now()
 
       if (timeLeft <= 0) {
-        return clearInterval(interval);
+        return clearInterval(interval)
       }
 
-      const particleCount = 50 * (timeLeft / duration);
+      const particleCount = 50 * (timeLeft / duration)
 
-      // Grünes Konfetti
       window.confetti({
         ...defaults,
         particleCount: particleCount / 2,
         colors: ['#22c55e'],
         origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-      });
+      })
 
-      // Schwarzes Konfetti
       window.confetti({
         ...defaults,
         particleCount: particleCount / 2,
         colors: ['#000000'],
         origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-      });
-    }, 250);
-  }, []);
+      })
+    }, 250)
+  }, [])
 
-  // Überprüfe, ob alle Items verarbeitet wurden
   useEffect(() => {
     if (processedItems.length === initialItems.length && !hasShownConfetti) {
-      triggerConfetti();
-      setHasShownConfetti(true);
+      triggerConfetti()
+      setHasShownConfetti(true)
     }
-  }, [processedItems.length, initialItems.length, hasShownConfetti, triggerConfetti]);
+  }, [processedItems.length, initialItems.length, hasShownConfetti, triggerConfetti])
 
-  // Preload animation
   useEffect(() => {
     if (!isPreloaded) {
       const preloadAnimation = async () => {
@@ -188,7 +219,6 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
     }
   }, [isPreloaded])
 
-  // Memoize animation variants for consistent performance
   const cardVariants = useMemo(() => ({
     initial: { 
       opacity: 1, 
@@ -211,7 +241,6 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
     }
   }), [isAnimating, exitX, exitColor])
 
-  // Memoize transition configuration
   const cardTransition = useMemo(() => ({
     duration: 0.5,
     ease: [0.32, 0.72, 0, 1],
@@ -255,7 +284,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
               link: currentItem.link,
               fields: {
                 link: currentItem.link,
-                Anhang: currentItem.attachment ? [currentItem.attachment] : undefined
+                Anhang: currentItem.fields.Anhang
               }
             }
           }
@@ -287,17 +316,16 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
   const handleItemClick = (item: ProcessedItem) => {
     setSelectedItem(item)
     setShowDetailModal(true)
-    setIsExpanded(false) // Reset "Mehr anzeigen"-Zustand beim Öffnen
+    setIsExpanded(false)
   }
 
   const handleQuestionSubmit = async () => {
     if (question.trim() && !isAnimating) {
       setIsAnimating(true)
       setExitX(300)
-      setExitColor("rgba(219, 234, 254, 0.8)") // Pastell-Blau
+      setExitColor("rgba(219, 234, 254, 0.8)")
 
       try {
-        // Update Airtable with question
         const result = await updateItemStatus(currentItem.id, '?', question)
         
         if (!result.success) {
@@ -314,7 +342,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
         setTimeout(() => {
           const newProcessedItem: ProcessedItem = {
             id: currentItem.id,
-            approved: null as any,
+            approved: null,
             details: {
               title: currentItem.title,
               type: currentItem.type,
@@ -322,7 +350,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
               link: currentItem.link,
               fields: {
                 link: currentItem.link,
-                Anhang: currentItem.attachment ? [currentItem.attachment] : undefined
+                Anhang: currentItem.fields.Anhang
               }
             }
           }
@@ -332,7 +360,6 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
             setCurrentItemIndex(prev => prev + 1)
           }
 
-          // Reset states
           setQuestion("")
           setShowQuestionModal(false)
           setIsAnimating(false)
@@ -352,42 +379,17 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
     }
   }
 
-  const handleAttachmentClick = useCallback((item: Item) => {
-    if (!item?.attachment?.url) {
-      console.log('Invalid attachment:', item?.attachment)
-      return
-    }
-
-    setSelectedItem({
-      id: item.id,
-      approved: null,
-      details: {
-        title: item.title,
-        type: item.type,
-        description: item.description,
-        link: item.link,
-        fields: {
-          link: item.link,
-          Anhang: [item.attachment]
-        }
-      }
-    })
-    setShowAttachmentModal(true)
-  }, [])
-
-  // Function to truncate title if too long
   const truncateTitle = (title: string) => {
     if (title.length > 30) {
-      return title.substring(0, 27) + '...';
+      return title.substring(0, 27) + '...'
     }
-    return title;
-  };
+    return title
+  }
 
-  // Funktion zum Kürzen des Textes für die Vorschau
   const truncateDescription = (description: string, maxLength: number = 100) => {
-    if (description.length <= maxLength) return description;
-    return description.substring(0, maxLength).trim() + '...';
-  };
+    if (description.length <= maxLength) return description
+    return description.substring(0, maxLength).trim() + '...'
+  }
 
   return (
     <>
@@ -474,15 +476,37 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
-                        {hasValidAttachment && (
-                          <button 
-                            onClick={() => handleAttachmentClick(currentItem)}
-                            className="bg-white rounded-lg w-12 h-12 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors hover:bg-gray-50 cursor-pointer"
-                            aria-label="Anhang öffnen"
-                          >
-                            <ImageIcon className="w-6 h-6 text-gray-400" />
-                          </button>
+                      <div className="flex gap-2 flex-wrap">
+                        {hasValidAttachments ? (
+                          currentItem.fields.Anhang.map((attachment, index) => (
+                            <button
+                              key={attachment.id}
+                              onClick={() => {
+                                setSelectedItem({
+                                  id: currentItem.id,
+                                  approved: null,
+                                  details: {
+                                    title: currentItem.title,
+                                    type: currentItem.type,
+                                    description: currentItem.description,
+                                    link: currentItem.link,
+                                    fields: {
+                                      link: currentItem.link,
+                                      Anhang: currentItem.fields.Anhang
+                                    }
+                                  }
+                                })
+                                setShowAttachmentModal(true)
+                              }}
+                              className="bg-white rounded-lg w-12 h-12 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors hover:bg-gray-50 cursor-pointer"
+                              aria-label={`Anhang ${index + 1} öffnen`}
+                              title={attachment.filename || `Anhang ${index + 1}`}
+                            >
+                              <ImageIcon className="w-6 h-6 text-gray-400" />
+                            </button>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">Keine Anhänge verfügbar</p>
                         )}
                         {currentItem.link && (
                           <a
@@ -576,7 +600,6 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
             </div>
           </div>
 
-          {/* Add footer with logo */}
           <footer className="flex justify-center mt-48 mb-8">
             <Image
               src="/skib-logo.png"
@@ -590,7 +613,6 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
           </footer>
         </main>
 
-        {/* Frage-Modal */}
         {showQuestionModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <motion.div
@@ -627,7 +649,6 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
           </div>
         )}
 
-        {/* Detail Modal */}
         {showDetailModal && selectedItem && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <motion.div
@@ -679,7 +700,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                       className="bg-white rounded-lg px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors"
                     >
                       <ImageIcon className="w-4 h-4" />
-                      Anhang öffnen
+                      Anhänge öffnen ({selectedItem.details.fields.Anhang.length})
                     </button>
                   </div>
                 )}
@@ -713,11 +734,10 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
         )}
       </div>
 
-      {/* Attachment Modal */}
       <AnimatePresence>
-        {showAttachmentModal && selectedItem?.details?.fields?.Anhang?.[0]?.url && (
+        {showAttachmentModal && selectedItem?.details?.fields?.Anhang && (
           <AttachmentModal
-            url={selectedItem.details.fields.Anhang[0].url}
+            attachments={selectedItem.details.fields.Anhang}
             onClose={() => setShowAttachmentModal(false)}
           />
         )}

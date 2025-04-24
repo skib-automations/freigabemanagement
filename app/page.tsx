@@ -14,10 +14,12 @@ interface AirtableItem {
     Anhang?: Array<{
       id: string
       url: string
+      filename?: string
+      type?: string
     }>
     'Frage vom Kunden'?: string
     Kunde: string
-    Link?: string  // Neue Spalte für den Link
+    Link?: string
   }
 }
 
@@ -50,7 +52,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     console.log('All Kunde values in Airtable:', initialItems.map(item => ({
       Kunde: item.fields.Kunde,
       Status: item.fields.Status,
-      Link: item.fields.Link  // Link-Feld hinzufügen (Debugging)
+      Link: item.fields.Link,
+      Anhang: item.fields.Anhang
     })))
     
     const pendingItems = initialItems.filter((item: AirtableItem) => {
@@ -69,7 +72,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
         NormalizedKundeParam: normalizedKundeParam,
         MatchesKunde: matchesKunde,
         IsUnlabeled: isUnlabeled,
-        Link: item.fields.Link  // Link-Feld hinzufügen (Debugging)
+        Link: item.fields.Link,
+        Anhang: item.fields.Anhang
       })
       
       return isUnlabeled && matchesKunde
@@ -82,24 +86,38 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
         kunde: item.fields.Kunde,
         status: item.fields.Status,
         title: item.fields.Titel,
-        link: item.fields.Link  // Link-Feld hinzufügen (Debugging)
+        link: item.fields.Link,
+        attachments: item.fields.Anhang
       }))
     })
 
-    const formattedItems = pendingItems.map((item: AirtableItem) => ({
-      id: item.id,
-      title: item.fields.Titel,
-      type: item.fields.Type,
-      description: item.fields.Beschreibung,
-      fields: {
-        Anhang: item.fields.Anhang
-      },
-      attachment: item.fields.Anhang?.[0],
-      status: "" as "JA" | "NEIN" | "?",
-      question: item.fields['Frage vom Kunden'],
-      kunde: item.fields.Kunde,
-      link: item.fields.Link  // Link-Feld hinzufügen
-    }))
+    const formattedItems = pendingItems.map((item: AirtableItem) => {
+      const attachments = item.fields.Anhang || []
+      console.log('Formatting item:', {
+        id: item.id,
+        title: item.fields.Titel,
+        attachments,
+        fieldsAnhang: item.fields.Anhang
+      })
+      return {
+        id: item.id,
+        title: item.fields.Titel,
+        type: item.fields.Type,
+        description: item.fields.Beschreibung,
+        fields: {
+          Anhang: attachments,
+          link: item.fields.Link
+        },
+        attachment: attachments[0], // Für Kompatibilität mit bestehendem Code
+        attachments: attachments, // Alle Anhänge
+        status: "" as "JA" | "NEIN" | "?",
+        question: item.fields['Frage vom Kunden'],
+        kunde: item.fields.Kunde,
+        link: item.fields.Link
+      }
+    })
+
+    console.log('Formatted items:', formattedItems)
 
     return (
       <Suspense fallback={<div>Laden...</div>}>
