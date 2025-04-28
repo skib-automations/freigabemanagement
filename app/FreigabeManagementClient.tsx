@@ -3,9 +3,9 @@
 import { useState, useCallback, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
-import { ImageIcon, X } from "lucide-react"
+import { ImageIcon, X, Pencil } from "lucide-react"
 import Script from 'next/script'
-import { updateItemStatus } from './actions'
+import { updateItemStatus, updateItemDescription } from './actions'
 import { toast } from 'sonner'
 
 interface AttachmentObject {
@@ -136,6 +136,8 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
   const [isPreloaded, setIsPreloaded] = useState(false)
   const [hasShownConfetti, setHasShownConfetti] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedDescription, setEditedDescription] = useState("")
 
   const currentItem = initialItems[currentItemIndex]
   
@@ -217,6 +219,12 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
       preloadAnimation()
     }
   }, [isPreloaded])
+
+  useEffect(() => {
+    if (currentItem) {
+      setEditedDescription(currentItem.description)
+    }
+  }, [currentItem])
 
   const cardVariants = useMemo(() => ({
     initial: { 
@@ -378,6 +386,36 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
     }
   }
 
+  const handleDescriptionSave = async () => {
+    if (!editedDescription.trim()) {
+      toast.error("Beschreibung darf nicht leer sein")
+      return
+    }
+
+    try {
+      const result = await updateItemDescription(currentItem.id, editedDescription)
+      if (result.success) {
+        toast.success("Beschreibung erfolgreich aktualisiert")
+        setIsEditing(false)
+        // Update initialItems to reflect the change
+        initialItems[currentItemIndex].description = editedDescription
+      } else {
+        toast.error(result.error || "Fehler beim Speichern der Beschreibung")
+      }
+    } catch (error) {
+      console.error("Error saving description:", error)
+      toast.error("Ein unerwarteter Fehler ist aufgetreten", {
+        description: error instanceof Error ? error.message : "Bitte versuchen Sie es später erneut.",
+        duration: 5000
+      })
+    }
+  }
+
+  const handleDescriptionCancel = () => {
+    setIsEditing(false)
+    setEditedDescription(currentItem.description)
+  }
+
   const truncateTitle = (title: string) => {
     if (title.length > 30) {
       return title.substring(0, 27) + '...'
@@ -469,10 +507,37 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                       
                       <h2 className="text-lg md:text-xl font-bold pl-1">{currentItem.title}</h2>
                       
-                      <div className="bg-white rounded-lg p-4 md:p-8">
-                        <div className="text-sm md:text-base text-gray-700 min-h-[180px] whitespace-pre-line">
-                          {currentItem.description}
-                        </div>
+                      <div className="bg-white rounded-lg p-4 md:p-8 relative">
+                        {isEditing ? (
+                          <div className="relative">
+                            <textarea
+                              value={editedDescription}
+                              onChange={(e) => setEditedDescription(e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg p-3 min-h-[180px] text-sm md:text-base text-gray-700 whitespace-pre-line"
+                            />
+                            <button
+                              onClick={handleDescriptionCancel}
+                              className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                              aria-label="Bearbeitung abbrechen"
+                            >
+                              <X className="w-5 h-5 text-gray-600" />
+                            </button>
+                            {editedDescription !== currentItem.description && (
+                              <div className="mt-2 flex justify-end">
+                                <button
+                                  onClick={handleDescriptionSave}
+                                  className="px-3 py-1 bg-black text-white rounded-lg hover:bg-gray-800 text-sm"
+                                >
+                                  Speichern
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-sm md:text-base text-gray-700 min-h-[180px] whitespace-pre-line">
+                            {currentItem.description}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex gap-2 flex-wrap">
@@ -485,13 +550,13 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                                   id: currentItem.id,
                                   approved: null,
                                   details: {
-                                    title: currentItem.title,
-                                    type: currentItem.type,
-                                    description: currentItem.description,
-                                    link: currentItem.link,
+                                    title: initialItems[currentItemIndex].title,
+                                    type: initialItems[currentItemIndex].type,
+                                    description: initialItems[currentItemIndex].description,
+                                    link: initialItems[currentItemIndex].link,
                                     fields: {
-                                      link: currentItem.link,
-                                      Anhang: currentItem.fields.Anhang
+                                      link: initialItems[currentItemIndex].link,
+                                      Anhang: initialItems[currentItemIndex].fields.Anhang
                                     }
                                   }
                                 })
@@ -515,7 +580,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                             className="bg-white rounded-lg w-12 h-12 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors hover:bg-gray-50 cursor-pointer"
                             aria-label="Link öffnen"
                           >
-                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 24 24" xmlns="http://www.w3.org/2000/svg">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                             </svg>
                           </a>
@@ -541,6 +606,16 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                         className="w-16 md:w-20 min-h-[44px] flex items-center justify-center rounded-full border border-black hover:bg-gray-50 transition-colors"
                       >
                         ?
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditing(true)
+                          setEditedDescription(currentItem.description)
+                        }}
+                        className="w-16 md:w-20 min-h-[44px] flex items-center justify-center rounded-full border border-black hover:bg-gray-50 transition-colors"
+                        aria-label="Beschreibung bearbeiten"
+                      >
+                        <Pencil className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
@@ -711,7 +786,7 @@ export default function FreigabeManagementClient({ initialItems, kunde }: Props)
                       rel="noopener noreferrer"
                       className="bg-white rounded-lg px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                       </svg>
                       Link öffnen
